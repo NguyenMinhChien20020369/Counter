@@ -4,7 +4,7 @@ const ACCESS_TOKEN_KEY = 'counter.accessToken';
 const TOKEN_TYPE_KEY = 'counter.tokenType';
 
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },
