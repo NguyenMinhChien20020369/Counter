@@ -337,6 +337,46 @@
   font-weight: 650;
 }
 
+.login-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.login-label-row label {
+  margin-bottom: 0;
+}
+
+.forgot-password-link {
+  padding: 2px 0;
+  border: 0;
+  color: var(--login-purple);
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.forgot-password-link:hover {
+  color: var(--login-purple-dark);
+  text-decoration: underline;
+}
+
+.forgot-password-link:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid rgba(117, 72, 232, 0.35);
+  outline-offset: 3px;
+}
+
+.otp-help {
+  margin: 7px 0 0;
+  color: #928ba0;
+  font-size: 10px;
+}
+
 .login-input-wrap {
   display: flex;
   align-items: center;
@@ -453,6 +493,12 @@
   text-decoration: underline;
 }
 
+.login-switch-mode button.resend-otp-button:disabled {
+  color: var(--login-muted);
+  text-decoration: none;
+  cursor: not-allowed;
+}
+
 .login-switch-mode button:focus-visible {
   border-radius: 4px;
   outline: 2px solid rgba(117, 72, 232, 0.35);
@@ -493,7 +539,10 @@
 
 @media (max-width: 760px) {
   .login-page {
-    padding: 20px;
+    align-items: start;
+    overflow-x: clip;
+    overflow-y: visible;
+    padding: 16px;
   }
 
   .login-card {
@@ -504,6 +553,32 @@
   }
 
   .login-aside {
+    min-height: 0;
+    padding: 22px 24px 18px;
+  }
+
+  .login-aside-copy {
+    margin-top: 24px;
+  }
+
+  .login-aside-copy h2 {
+    max-width: 360px;
+    margin: 10px 0 8px;
+    font-size: clamp(25px, 7vw, 32px);
+  }
+
+  .login-aside-copy > p:last-child {
+    max-width: 380px;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .login-visual {
+    flex: 0 0 125px;
+    min-height: 125px;
+  }
+
+  .login-aside-footer {
     display: none;
   }
 
@@ -512,13 +587,7 @@
   }
 
   .login-mobile-brand {
-    display: inline-flex;
-    margin-bottom: 37px;
-    font-size: 18px;
-  }
-
-  .login-mobile-brand .login-brand-mark {
-    border-color: rgba(117, 72, 232, 0.16);
+    display: none;
   }
 
   .login-heading {
@@ -532,19 +601,19 @@
 
 @media (max-width: 380px) {
   .login-page {
-    padding: 12px;
+    padding: 10px;
   }
 
   .login-card {
     border-radius: 18px;
   }
 
-  .login-content {
-    padding: 25px 21px 22px;
+  .login-aside {
+    padding: 19px 20px 15px;
   }
 
-  .login-mobile-brand {
-    margin-bottom: 30px;
+  .login-content {
+    padding: 25px 21px 22px;
   }
 }
 

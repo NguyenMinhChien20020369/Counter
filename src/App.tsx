@@ -55,8 +55,12 @@ function App() {
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [resendOtpCountdown, setResendOtpCountdown] = useState(0);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [currentYear, setCurrentYear] = useState<number>(Number(curDate.split('-')[0]));
   const [currentMonth, setCurrentMonth] = useState<number>(Number(curDate.split('-')[1])); // Tháng trong đời thực (1 - 12)
@@ -68,6 +72,16 @@ function App() {
   const [isSavingCount, setIsSavingCount] = useState(false);
 
   const currentDayCount = dailyCounts[selectedDateStr] || 0;
+
+  useEffect(() => {
+    if (resendOtpCountdown <= 0) return;
+
+    const timer = window.setTimeout(() => {
+      setResendOtpCountdown((remaining) => Math.max(remaining - 1, 0));
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [resendOtpCountdown]);
 
   // 3. THUẬT TOÁN TẠO DANH SÁCH CÁC NGÀY TRONG THÁNG
   const getDaysInMonth = (year: number, month: number) => {
@@ -222,6 +236,77 @@ function App() {
     }
   };
 
+  const handleRequestPasswordOtp = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsLoggingIn(true);
+
+    try {
+      await api.post('/auth/forgot-password', { email });
+      setIsOtpSent(true);
+      setResendOtpCountdown(60);
+      toast.success('Nếu email tồn tại, mã OTP sẽ được gửi đến hộp thư của bạn.', {
+        position: 'top-right',
+        autoClose: 4500,
+      });
+    } catch (error: unknown) {
+      notifyError(getRequestErrorMessage(error, 'Không thể gửi mã OTP.'));
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleResendPasswordOtp = async () => {
+    setIsLoggingIn(true);
+    try {
+      await api.post('/auth/forgot-password', { email });
+      setResendOtpCountdown(60);
+      toast.success('Nếu email tồn tại và đã qua thời gian chờ, mã OTP mới sẽ được gửi.', {
+        position: 'top-right',
+        autoClose: 4500,
+      });
+    } catch (error: unknown) {
+      notifyError(getRequestErrorMessage(error, 'Không thể gửi lại mã OTP.'));
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleResetPassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (password !== confirmPassword) {
+      notifyError('Mật khẩu xác nhận không khớp.');
+      return;
+    }
+
+    setIsLoggingIn(true);
+    try {
+      const response = await api.post<{ status: string }>('/auth/reset-password', {
+        email,
+        otp,
+        newPassword: password,
+      });
+
+      if (response.data.status !== 'success') {
+        throw new Error('Backend không xác nhận đổi mật khẩu.');
+      }
+
+      toast.success('Đổi mật khẩu thành công. Hãy đăng nhập bằng mật khẩu mới.', {
+        position: 'top-right',
+        autoClose: 4000,
+      });
+      setIsForgotPassword(false);
+      setIsOtpSent(false);
+      setResendOtpCountdown(0);
+      setPassword('');
+      setConfirmPassword('');
+      setOtp('');
+    } catch (error: unknown) {
+      notifyError(getRequestErrorMessage(error, 'Không thể đổi mật khẩu.'));
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
   // 4. Hàm tăng/giảm lượt đếm của ngày đang chọn
   const handleCounterChange = async (amount: number) => {
     const currentCount = dailyCounts[selectedDateStr] || 0;
@@ -319,23 +404,35 @@ function App() {
               </div>
               <div className="login-heading">
                 <span className="login-welcome">
-                  {isRegistering ? 'BẮT ĐẦU HÀNH TRÌNH CỦA BẠN' : 'CHÀO MỪNG BẠN TRỞ LẠI'}
+                  {isForgotPassword
+                    ? (isOtpSent ? 'XÁC THỰC BẢO MẬT' : 'KHÔI PHỤC TÀI KHOẢN')
+                    : (isRegistering ? 'BẮT ĐẦU HÀNH TRÌNH CỦA BẠN' : 'CHÀO MỪNG BẠN TRỞ LẠI')}
                 </span>
                 <h1 id="login-title" className="login-title">
-                  {isRegistering ? 'Tạo tài khoản' : 'Đăng nhập'}
+                  {isForgotPassword
+                    ? (isOtpSent ? 'Đặt mật khẩu mới' : 'Quên mật khẩu?')
+                    : (isRegistering ? 'Tạo tài khoản' : 'Đăng nhập')}
                 </h1>
                 <p>
-                  {isRegistering
-                    ? 'Tạo tài khoản để lưu lại từng bước tiến mỗi ngày.'
-                    : 'Đăng nhập để tiếp tục hành trình tích lũy của bạn.'}
+                  {isForgotPassword
+                    ? (isOtpSent
+                      ? `Nhập mã OTP đã gửi tới ${email} và tạo mật khẩu mới.`
+                      : 'Nhập email của bạn. Chúng tôi sẽ gửi mã OTP để xác minh tài khoản.')
+                    : (isRegistering
+                      ? 'Tạo tài khoản để lưu lại từng bước tiến mỗi ngày.'
+                      : 'Đăng nhập để tiếp tục hành trình tích lũy của bạn.')}
                 </p>
               </div>
 
               <form
-                className={`login-form${isRegistering ? ' register-form' : ''}`}
-                onSubmit={isRegistering ? handleRegister : handleLogin}
+                className={`login-form${isRegistering || (isForgotPassword && isOtpSent) ? ' register-form' : ''}`}
+                onSubmit={
+                  isForgotPassword
+                    ? (isOtpSent ? handleResetPassword : handleRequestPasswordOtp)
+                    : (isRegistering ? handleRegister : handleLogin)
+                }
               >
-                {isRegistering && (
+                {isRegistering && !isForgotPassword && (
                   <div className="login-field">
                     <label htmlFor="register-name">Họ và tên</label>
                     <div className="login-input-wrap">
@@ -355,27 +452,71 @@ function App() {
                     </div>
                   </div>
                 )}
-                <div className="login-field">
-                  <label htmlFor="login-email">Địa chỉ email</label>
-                  <div className="login-input-wrap">
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <rect x="3.5" y="5" width="17" height="14" rx="3" stroke="currentColor" strokeWidth="1.7" />
-                      <path d="m5 7 7 5 7-5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <input
-                      id="login-email"
-                      type="email"
-                      autoComplete="username"
-                      placeholder="ten@email.com"
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      required
-                    />
+                {(!isForgotPassword || !isOtpSent) && (
+                  <div className="login-field">
+                    <label htmlFor="login-email">Địa chỉ email</label>
+                    <div className="login-input-wrap">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <rect x="3.5" y="5" width="17" height="14" rx="3" stroke="currentColor" strokeWidth="1.7" />
+                        <path d="m5 7 7 5 7-5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <input
+                        id="login-email"
+                        type="email"
+                        autoComplete="username"
+                        placeholder="ten@email.com"
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        required
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="login-field">
+                )}
+                {isForgotPassword && isOtpSent && (
+                  <div className="login-field">
+                    <label htmlFor="reset-otp">Mã OTP gồm 6 chữ số</label>
+                    <div className="login-input-wrap">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <rect x="3.5" y="5" width="17" height="14" rx="3" stroke="currentColor" strokeWidth="1.7" />
+                        <path d="M7 10h.01M12 10h.01M17 10h.01M7 14h.01M12 14h.01M17 14h.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                      </svg>
+                      <input
+                        id="reset-otp"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        pattern="[0-9]{6}"
+                        maxLength={6}
+                        placeholder="000000"
+                        value={otp}
+                        onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                        required
+                      />
+                    </div>
+                    <p className="otp-help">Mã có hiệu lực trong 5 phút.</p>
+                  </div>
+                )}
+                {(!isForgotPassword || isOtpSent) && <div className="login-field">
                   <div className="login-label-row">
-                    <label htmlFor="login-password">Mật khẩu</label>
+                    <label htmlFor="login-password">
+                      {isForgotPassword ? 'Mật khẩu mới' : 'Mật khẩu'}
+                    </label>
+                    {!isRegistering && !isForgotPassword && (
+                      <button
+                        className="forgot-password-link"
+                        type="button"
+                        onClick={() => {
+                          setIsForgotPassword(true);
+                          setIsOtpSent(false);
+                          setResendOtpCountdown(0);
+                          setPassword('');
+                          setConfirmPassword('');
+                          setOtp('');
+                        }}
+                      >
+                        Quên mật khẩu?
+                      </button>
+                    )}
                   </div>
                   <div className="login-input-wrap">
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -385,8 +526,9 @@ function App() {
                     <input
                       id="login-password"
                       type={showPassword ? 'text' : 'password'}
-                      autoComplete={isRegistering ? 'new-password' : 'current-password'}
-                      placeholder="Nhập mật khẩu"
+                      autoComplete={isRegistering || isForgotPassword ? 'new-password' : 'current-password'}
+                      minLength={isForgotPassword ? 8 : undefined}
+                      placeholder={isForgotPassword ? 'Tạo mật khẩu mới' : 'Nhập mật khẩu'}
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       required
@@ -400,10 +542,12 @@ function App() {
                       {showPassword ? 'Ẩn' : 'Hiện'}
                     </button>
                   </div>
-                </div>
-                {isRegistering && (
+                </div>}
+                {(isRegistering || (isForgotPassword && isOtpSent)) && (
                   <div className="login-field">
-                    <label htmlFor="register-confirm-password">Xác nhận mật khẩu</label>
+                    <label htmlFor="register-confirm-password">
+                      {isForgotPassword ? 'Xác nhận mật khẩu mới' : 'Xác nhận mật khẩu'}
+                    </label>
                     <div className="login-input-wrap">
                       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                         <rect x="4" y="10" width="16" height="11" rx="3" stroke="currentColor" strokeWidth="1.7" />
@@ -413,6 +557,7 @@ function App() {
                         id="register-confirm-password"
                         type={showPassword ? 'text' : 'password'}
                         autoComplete="new-password"
+                        minLength={isForgotPassword ? 8 : undefined}
                         placeholder="Nhập lại mật khẩu"
                         value={confirmPassword}
                         onChange={(event) => setConfirmPassword(event.target.value)}
@@ -424,25 +569,59 @@ function App() {
                 <button className="login-submit" type="submit" disabled={isLoggingIn}>
                   <span>
                     {isLoggingIn
-                      ? (isRegistering ? 'Đang tạo tài khoản...' : 'Đang đăng nhập...')
-                      : (isRegistering ? 'Tạo tài khoản' : 'Đăng nhập')}
+                      ? (isForgotPassword
+                        ? (isOtpSent ? 'Đang đổi mật khẩu...' : 'Đang gửi mã OTP...')
+                        : (isRegistering ? 'Đang tạo tài khoản...' : 'Đang đăng nhập...'))
+                      : (isForgotPassword
+                        ? (isOtpSent ? 'Đổi mật khẩu' : 'Gửi mã OTP')
+                        : (isRegistering ? 'Tạo tài khoản' : 'Đăng nhập'))}
                   </span>
                   {!isLoggingIn && <span className="login-submit-arrow" aria-hidden="true">→</span>}
                 </button>
               </form>
-              <p className="login-switch-mode">
-                {isRegistering ? 'Đã có tài khoản?' : 'Chưa có tài khoản?'}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsRegistering((registering) => !registering);
-                    setPassword('');
-                    setConfirmPassword('');
-                  }}
-                >
-                  {isRegistering ? 'Đăng nhập' : 'Tạo tài khoản'}
-                </button>
-              </p>
+              {isForgotPassword ? (
+                <p className="login-switch-mode">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotPassword(false);
+                      setIsOtpSent(false);
+                      setResendOtpCountdown(0);
+                      setOtp('');
+                      setPassword('');
+                      setConfirmPassword('');
+                    }}
+                  >
+                    ← Quay lại đăng nhập
+                  </button>
+                  {isOtpSent && (
+                    <button
+                      type="button"
+                      className="resend-otp-button"
+                      disabled={isLoggingIn || resendOtpCountdown > 0}
+                      onClick={() => void handleResendPasswordOtp()}
+                    >
+                      {resendOtpCountdown > 0
+                        ? `Gửi lại mã sau ${String(Math.floor(resendOtpCountdown / 60)).padStart(2, '0')}:${String(resendOtpCountdown % 60).padStart(2, '0')}`
+                        : 'Gửi lại mã'}
+                    </button>
+                  )}
+                </p>
+              ) : (
+                <p className="login-switch-mode">
+                  {isRegistering ? 'Đã có tài khoản?' : 'Chưa có tài khoản?'}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsRegistering((registering) => !registering);
+                      setPassword('');
+                      setConfirmPassword('');
+                    }}
+                  >
+                    {isRegistering ? 'Đăng nhập' : 'Tạo tài khoản'}
+                  </button>
+                </p>
+              )}
               <div className="login-secure-note">
                 <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
                   <path d="M10 2.5 3.5 5v4.2c0 4.1 2.7 6.9 6.5 8.3 3.8-1.4 6.5-4.2 6.5-8.3V5L10 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
