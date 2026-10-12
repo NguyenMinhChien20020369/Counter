@@ -62,6 +62,7 @@ function App() {
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [resendOtpCountdown, setResendOtpCountdown] = useState(0);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loginProgress, setLoginProgress] = useState(0);
   const [currentYear, setCurrentYear] = useState<number>(Number(curDate.split('-')[0]));
   const [currentMonth, setCurrentMonth] = useState<number>(Number(curDate.split('-')[1])); // Tháng trong đời thực (1 - 12)
   const [selectedDateStr, setSelectedDateStr] = useState<string>(curDate);
@@ -82,6 +83,16 @@ function App() {
 
     return () => window.clearTimeout(timer);
   }, [resendOtpCountdown]);
+
+  useEffect(() => {
+    if (!isLoggingIn || isRegistering || isForgotPassword) return;
+
+    const timer = window.setInterval(() => {
+      setLoginProgress((progress) => (progress < 95 ? progress + 1 : progress));
+    }, 3000);
+
+    return () => window.clearInterval(timer);
+  }, [isLoggingIn, isRegistering, isForgotPassword]);
 
   // 3. THUẬT TOÁN TẠO DANH SÁCH CÁC NGÀY TRONG THÁNG
   const getDaysInMonth = (year: number, month: number) => {
@@ -180,6 +191,7 @@ function App() {
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setLoginProgress(0);
     setIsLoggingIn(true);
 
     try {
@@ -193,10 +205,13 @@ function App() {
         throw new Error('Phản hồi đăng nhập không có accessToken hoặc tokenType.');
       }
 
+      setLoginProgress(100);
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
       saveAuthToken(accessToken, tokenType);
       setIsAuthenticated(true);
       setPassword('');
     } catch (error: unknown) {
+      setLoginProgress(0);
       notifyError(getRequestErrorMessage(error, 'Đăng nhập thất bại.'));
     } finally {
       setIsLoggingIn(false);
@@ -571,13 +586,23 @@ function App() {
                     {isLoggingIn
                       ? (isForgotPassword
                         ? (isOtpSent ? 'Đang đổi mật khẩu...' : 'Đang gửi mã OTP...')
-                        : (isRegistering ? 'Đang tạo tài khoản...' : 'Đang đăng nhập...'))
+                        : (isRegistering
+                          ? 'Đang tạo tài khoản...'
+                          : `Đang đăng nhập · ${loginProgress}%`))
                       : (isForgotPassword
                         ? (isOtpSent ? 'Đổi mật khẩu' : 'Gửi mã OTP')
                         : (isRegistering ? 'Tạo tài khoản' : 'Đăng nhập'))}
                   </span>
                   {!isLoggingIn && <span className="login-submit-arrow" aria-hidden="true">→</span>}
                 </button>
+                {isLoggingIn && !isRegistering && !isForgotPassword && (
+                  <div className="login-progress" role="progressbar" aria-label="Tiến độ đăng nhập" aria-valuemin={0} aria-valuemax={100} aria-valuenow={loginProgress}>
+                    <div className="login-progress-track">
+                      <span style={{ width: `${loginProgress}%` }} />
+                    </div>
+                    <p>Đang kết nối máy chủ, vui lòng chờ trong giây lát.</p>
+                  </div>
+                )}
               </form>
               {isForgotPassword ? (
                 <p className="login-switch-mode">
@@ -657,6 +682,7 @@ function App() {
               className="dashboard-logout"
               onClick={() => {
                 clearAuthToken();
+                setLoginProgress(0);
                 setIsAuthenticated(false);
               }}
             >

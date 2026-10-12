@@ -470,6 +470,32 @@
   cursor: wait;
 }
 
+.login-progress {
+  margin-top: 10px;
+}
+
+.login-progress-track {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eeeaf6;
+}
+
+.login-progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7548e8, #a17af2);
+  transition: width 500ms ease;
+}
+
+.login-progress p {
+  margin: 7px 0 0;
+  color: var(--login-muted);
+  font-size: 10px;
+  text-align: center;
+}
+
 .login-switch-mode {
   margin: 22px 0 0;
   color: var(--login-muted);
