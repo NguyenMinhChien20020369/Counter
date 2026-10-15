@@ -75,6 +75,23 @@ function App() {
   const currentDayCount = dailyCounts[selectedDateStr] || 0;
 
   useEffect(() => {
+    const controller = new AbortController();
+
+    api.get<{ status: string }>('/health', { signal: controller.signal })
+      .then(({ data }) => {
+        if (data.status !== 'ok') {
+          throw new Error('Backend health check trả về trạng thái không hợp lệ.');
+        }
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        notifyError(getRequestErrorMessage(error, 'Không thể kết nối backend.'));
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
     if (resendOtpCountdown <= 0) return;
 
     const timer = window.setTimeout(() => {
@@ -89,7 +106,7 @@ function App() {
 
     const timer = window.setInterval(() => {
       setLoginProgress((progress) => (progress < 95 ? progress + 1 : progress));
-    }, 3000);
+    }, 2000);
 
     return () => window.clearInterval(timer);
   }, [isLoggingIn, isRegistering, isForgotPassword]);
