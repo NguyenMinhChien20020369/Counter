@@ -60,6 +60,7 @@ function App() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isOtpSent, setIsOtpSent] = useState(false);
+  const [isOtpReSent, setIsOtpReSent] = useState(false);
   const [resendOtpCountdown, setResendOtpCountdown] = useState(0);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginProgress, setLoginProgress] = useState(0);
@@ -109,7 +110,7 @@ function App() {
     }, 2000);
 
     return () => window.clearInterval(timer);
-  }, [isLoggingIn, isRegistering, isForgotPassword]);
+  }, [isLoggingIn, isRegistering, isForgotPassword, isLoadingMonthCounts]);
 
   // 3. THUẬT TOÁN TẠO DANH SÁCH CÁC NGÀY TRONG THÁNG
   const getDaysInMonth = (year: number, month: number) => {
@@ -156,6 +157,7 @@ function App() {
       Object.entries(prev).filter(([date]) => !date.startsWith(monthPrefix)),
     ));
     setCurrentMonthTotal(0);
+    setLoginProgress(0);
     setIsLoadingMonthCounts(true);
 
     const loadMonthCounts = async () => {
@@ -196,6 +198,8 @@ function App() {
         }
         notifyError(getRequestErrorMessage(error, 'Không thể tải dữ liệu tháng.'));
       } finally {
+        setLoginProgress(100);
+        await new Promise((resolve) => window.setTimeout(resolve, 450));
         if (isCurrentRequest) setIsLoadingMonthCounts(false);
       }
     };
@@ -237,6 +241,7 @@ function App() {
 
   const handleRegister = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setLoginProgress(0);
     if (password !== confirmPassword) {
       notifyError('Mật khẩu xác nhận không khớp.');
       return;
@@ -254,6 +259,9 @@ function App() {
         throw new Error('Backend không xác nhận đăng ký tài khoản.');
       }
 
+      setLoginProgress(100);
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
+
       toast.success('Tạo tài khoản thành công. Hãy đăng nhập để tiếp tục.', {
         position: 'top-right',
         autoClose: 3500,
@@ -270,10 +278,13 @@ function App() {
 
   const handleRequestPasswordOtp = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setLoginProgress(0);
     setIsLoggingIn(true);
 
     try {
       await api.post('/auth/forgot-password', { email });
+      setLoginProgress(100);
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
       setIsOtpSent(true);
       setResendOtpCountdown(60);
       toast.success('Nếu email tồn tại, mã OTP sẽ được gửi đến hộp thư của bạn.', {
@@ -288,10 +299,14 @@ function App() {
   };
 
   const handleResendPasswordOtp = async () => {
+    setLoginProgress(0);
     setIsLoggingIn(true);
+    setIsOtpReSent(true);
     try {
       await api.post('/auth/forgot-password', { email });
       setResendOtpCountdown(60);
+      setLoginProgress(100);
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
       toast.success('Nếu email tồn tại và đã qua thời gian chờ, mã OTP mới sẽ được gửi.', {
         position: 'top-right',
         autoClose: 4500,
@@ -300,11 +315,13 @@ function App() {
       notifyError(getRequestErrorMessage(error, 'Không thể gửi lại mã OTP.'));
     } finally {
       setIsLoggingIn(false);
+      setIsOtpReSent(false);
     }
   };
 
   const handleResetPassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setLoginProgress(0);
     if (password !== confirmPassword) {
       notifyError('Mật khẩu xác nhận không khớp.');
       return;
@@ -321,6 +338,9 @@ function App() {
       if (response.data.status !== 'success') {
         throw new Error('Backend không xác nhận đổi mật khẩu.');
       }
+
+      setLoginProgress(100);
+      await new Promise((resolve) => window.setTimeout(resolve, 450));
 
       toast.success('Đổi mật khẩu thành công. Hãy đăng nhập bằng mật khẩu mới.', {
         position: 'top-right',
@@ -602,9 +622,13 @@ function App() {
                   <span>
                     {isLoggingIn
                       ? (isForgotPassword
-                        ? (isOtpSent ? 'Đang đổi mật khẩu...' : 'Đang gửi mã OTP...')
+                        ? (isOtpSent
+                          ? (isOtpReSent
+                            ? `Đang gửi lại mã OTP · ${loginProgress}%`
+                            : `Đang đổi mật khẩu · ${loginProgress}%`)
+                          : `Đang gửi mã OTP · ${loginProgress}%`)
                         : (isRegistering
-                          ? 'Đang tạo tài khoản...'
+                          ? `Đang tạo tài khoản · ${loginProgress}%`
                           : `Đang đăng nhập · ${loginProgress}%`))
                       : (isForgotPassword
                         ? (isOtpSent ? 'Đổi mật khẩu' : 'Gửi mã OTP')
@@ -612,7 +636,7 @@ function App() {
                   </span>
                   {!isLoggingIn && <span className="login-submit-arrow" aria-hidden="true">→</span>}
                 </button>
-                {isLoggingIn && !isRegistering && !isForgotPassword && (
+                {isLoggingIn && (
                   <div className="login-progress" role="progressbar" aria-label="Tiến độ đăng nhập" aria-valuemin={0} aria-valuemax={100} aria-valuenow={loginProgress}>
                     <div className="login-progress-track">
                       <span style={{ width: `${loginProgress}%` }} />
@@ -832,7 +856,7 @@ function App() {
               </span>
               <span className="summary-copy">
                 <span>Tổng tháng này</span>
-                <strong>{isLoadingMonthCounts ? '…' : currentMonthTotal}</strong>
+                <strong>{isLoadingMonthCounts ? `Đang tải · ${loginProgress}%` : currentMonthTotal}</strong>
                 <small>lần tích lũy</small>
               </span>
               <span className="summary-card-spark" aria-hidden="true">↗</span>
