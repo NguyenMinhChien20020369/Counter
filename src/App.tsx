@@ -70,6 +70,7 @@ function App() {
 
   const [dailyCounts, setDailyCounts] = useState<Record<string, number>>({});
   const [currentMonthTotal, setCurrentMonthTotal] = useState(0);
+  const [currentMonthTotalDays, setCurrentMonthTotalDays] = useState(0);
   const [isLoadingMonthCounts, setIsLoadingMonthCounts] = useState(false);
   const [isSavingCount, setIsSavingCount] = useState(false);
 
@@ -103,7 +104,7 @@ function App() {
   }, [resendOtpCountdown]);
 
   useEffect(() => {
-    if (!isLoggingIn || isRegistering || isForgotPassword) return;
+    if (!isLoggingIn || isRegistering || isForgotPassword || !isLoadingMonthCounts) return;
 
     const timer = window.setInterval(() => {
       setLoginProgress((progress) => (progress < 95 ? progress + 1 : progress));
@@ -177,6 +178,7 @@ function App() {
 
         const countsByDate: Record<string, number> = {};
         // if (dateCountList.)
+        setCurrentMonthTotalDays(dateCountList.length);
         for (const item of dateCountList) {
           const date = item.date?.slice(0, 10);
           if (!date || !Number.isFinite(item.count)) {
@@ -384,6 +386,11 @@ function App() {
       }));
       if (selectedDateStr.startsWith(`${currentYear}-${String(currentMonth).padStart(2, '0')}-`)) {
         setCurrentMonthTotal(prev => prev + actualChange);
+        if (currentCount === 0 && nextCount === 1) {
+          setCurrentMonthTotalDays(prev => prev + 1);
+        } else if (currentCount === 1 && nextCount === 0) {
+          setCurrentMonthTotalDays(prev => Math.max(prev - 1, 0));
+        }
       }
     } catch (error: unknown) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
@@ -861,22 +868,21 @@ function App() {
               </span>
               <span className="summary-card-spark" aria-hidden="true">↗</span>
             </article>
-            {/* <article className="summary-card summary-card-day">
+
+            <article className="summary-card summary-card-month">
               <span className="summary-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.7" />
-                  <path d="M12 7v5l3.2 2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                  <rect x="3.5" y="5" width="17" height="16" rx="3.5" stroke="currentColor" strokeWidth="1.7" />
+                  <path d="M8 3v4M16 3v4M4 9.5h16M8 13h2M14 13h2M8 16.5h2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
                 </svg>
               </span>
               <span className="summary-copy">
-                <span>Ngày đang chọn</span>
-                <strong>{currentDayCount}</strong>
-                <small>{selectedDateLabel}</small>
+                <span>Tổng số ngày đã tích lũy tháng này</span>
+                <strong>{isLoadingMonthCounts ? `Đang tải · ${loginProgress}%` : currentMonthTotalDays}</strong>
+                <small>ngày tích lũy</small>
               </span>
-              <span className="summary-day-badge">
-                {selectedDateStr === curDate ? 'HÔM NAY' : 'ĐANG CHỌN'}
-              </span>
-            </article> */}
+              <span className="summary-card-spark" aria-hidden="true">↗</span>
+            </article>
           </section>
           <footer className="dashboard-footer">
             <span>Counter</span>
