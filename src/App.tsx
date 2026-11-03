@@ -158,6 +158,7 @@ function App() {
       Object.entries(prev).filter(([date]) => !date.startsWith(monthPrefix)),
     ));
     setCurrentMonthTotal(0);
+    setCurrentMonthTotalDays(0);
     setLoginProgress(0);
     setIsLoadingMonthCounts(true);
 
