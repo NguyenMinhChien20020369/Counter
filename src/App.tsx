@@ -104,7 +104,7 @@ function App() {
   }, [resendOtpCountdown]);
 
   useEffect(() => {
-    if (!isLoggingIn || isRegistering || isForgotPassword || !isLoadingMonthCounts) return;
+    if (!isLoggingIn && isRegistering && isForgotPassword && !isLoadingMonthCounts) return;
 
     const timer = window.setInterval(() => {
       setLoginProgress((progress) => (progress < 95 ? progress + 1 : progress));
